@@ -257,8 +257,8 @@ crashlytics-build.properties
 fabric.properties
 
 
-# PARASIGHT
-!/parasight/theme/light/*
-!/parasight/theme/dark/*
+# PARASCAN
+!/parascan/theme/light/*
+!/parascan/theme/dark/*
 !/exp/runs/train/exp/*
 !/exp/runs/val/exp/*

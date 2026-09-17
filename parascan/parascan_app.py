@@ -1,6 +1,3 @@
-'''
-/PARASIGHT/parasight/app_val.py
-'''
 import os
 import torch
 import cv2
@@ -10,13 +7,13 @@ from tkinter import ttk, filedialog, messagebox
 from tkinterdnd2 import DND_FILES, TkinterDnD
 from PIL import ImageTk, Image
 import pandas as pd
-import time
+import sys
 
-class App(TkinterDnD.Tk):
+class ParaScanApp(TkinterDnD.Tk):
     def __init__(self):
         # Initialize
         TkinterDnD.Tk.__init__(self)
-        self.title("PARASIGHT")
+        self.title("PARASCAN")
 
         # Setup
         self.setup()
@@ -33,9 +30,9 @@ class App(TkinterDnD.Tk):
         self.style = ttk.Style()
         self.style.configure("Treeview", rowheight=30)
 
-        # Master Frame
-        master = Master(self, self)
-        master.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
+        # Main Panel
+        panel = ScanPanel(self, self)
+        panel.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
 
         # Sizegrip
         self.sizegrip = ttk.Sizegrip(self)
@@ -47,11 +44,11 @@ class App(TkinterDnD.Tk):
         y_coordinate = int(self.winfo_screenheight() / 12)
         self.geometry("+{}+{}".format(x_coordinate, y_coordinate))
 
-class Master(ttk.Frame):
-    def __init__(self, parent, master):
+class ScanPanel(ttk.Frame):
+    def __init__(self, parent, window):
         # Initialize
         ttk.Frame.__init__(self, parent)
-        self.master = master
+        self.window = window
 
         # Setup
         self.setup() 
@@ -94,7 +91,7 @@ class Master(ttk.Frame):
         # Analyze Depth
         self.depth_label = ttk.Label(self.analyze_frame, text="Depth")
         self.depth_label.grid(row=0, column=0, padx=5, pady=5)
-        self.depth_spin = ttk.Spinbox(self.analyze_frame, from_=1, to=5, increment=1, width=4)
+        self.depth_spin = ttk.Spinbox(self.analyze_frame, from_=1, to=8, increment=1, width=4)
         self.depth_spin.set(1)
         self.depth_spin.grid(row=0, column=1, padx=5, pady=5)
 
@@ -108,7 +105,7 @@ class Master(ttk.Frame):
         # Analyze Button
         self.analyze_progress_1 = ttk.Frame(self.analyze_frame)
         self.analyze_progress_1.grid(row=0, column=5, sticky="nsew")
-        self.analyze_button = ttk.Button(self.analyze_progress_1, text="Anaylze", command=self.start)
+        self.analyze_button = ttk.Button(self.analyze_progress_1, text="Anaylze", command=self.analyze)
         self.analyze_button.grid(row=0, column=0, padx=5, pady=5)
 
         # Progress bar
@@ -177,36 +174,7 @@ class Master(ttk.Frame):
             "Trichuris trichiura"
         ]
 
-        self.update()
-
-    def start(self):
-        # Analyze
-        self.depth_spin.set(4)
-        t_analyze = []
-        for i in range(11):
-            for j in range(4):
-                src_pth = os.path.join(os.path.dirname(os.getcwd()), 'data', 'dataset', 'whole_slide', f"{i}_{j}")                
-                self.open(src_pth)
-                t_start = time.time()
-                self.analyze()
-                t_end = time.time()
-                t_analyze.append(t_end-t_start)
-                print(f"analyze_time: {t_end-t_start} s")
-                tgt_pth = os.path.join(os.path.dirname(os.getcwd()), 'exp', 'temp', 'whole_slide', f"{i}_{j}_pred.csv")
-                self.save(tgt_pth)
-                lbl_pth = os.path.join(os.path.dirname(os.getcwd()), 'data', 'dataset', 'whole_slide', f"{i}_{j}", 'label.csv')
-                lbl = pd.read_csv(lbl_pth)
-                tgt_pth = os.path.join(os.path.dirname(os.getcwd()), 'exp', 'temp', 'whole_slide', f"{i}_{j}_label.csv")
-                lbl.to_csv(tgt_pth, index=False)
-        t_average = '{:.2f}'.format(sum(t_analyze)/len(t_analyze))
-        t_analyze = ['{:.2f}'.format(t) + '\n' for t in t_analyze]
-        print("Average time", t_average)
-        with open(os.path.join(os.path.dirname(os.getcwd()), 'exp', 'temp', 'time.txt'), 'w') as f:
-            f.writelines(t_analyze)
-            f.writelines(f"Average: {t_average}\n")      
-
-    def open(self, pth):
-        '''
+    def open(self, kind):
         if kind == "image":
             pth = filedialog.askopenfilename(
                 title="Open Image"
@@ -214,8 +182,7 @@ class Master(ttk.Frame):
         elif kind == "folder":
             pth = filedialog.askdirectory(
                 title="Open Folder"
-            )        
-        '''
+            )
         if pth:
             self.img_pth = pth
             self.open_label.config(text=pth)
@@ -289,7 +256,7 @@ class Master(ttk.Frame):
 
             # Process
             nms = "size"
-            overlap = "iou"
+            overlap = "piou"
             if boxes: 
                 boxes = torch.cat(boxes)
             
@@ -346,19 +313,18 @@ class Master(ttk.Frame):
         
         self.record = pd.DataFrame(record, columns=["Parasite", "Confidence", "X", "Y", "W", "H", "Image"])
         self.analyze_progress_1.tkraise()
-        
+
     def tree_select(self):
-        geometry = self.master.geometry()
+        geometry = self.window.geometry()
         img_tag = self.result_tree.item(self.result_tree.selection())["tags"][0]
         image = Image.fromarray(self.egg_imgs[img_tag])
         size = min(self.image_label.winfo_width(), self.image_label.winfo_height())
         image = image.resize((size, size))
         self.image_show = ImageTk.PhotoImage(image)
         self.image_label.config(image=self.image_show)
-        self.master.geometry(geometry)
+        self.window.geometry(geometry)
     
-    def save(self, filename):
-        '''
+    def save(self):
         platform = sys.platform
         if platform == "linux": ext = None
         else: ext = "*.*"
@@ -367,11 +333,10 @@ class Master(ttk.Frame):
             filetypes=[("CSV File", "*.csv")],
             initialfile="result",
             defaultextension=ext
-        )        
-        '''
+        )
         if filename:
             self.record.to_csv(filename, index=False)
 
 if __name__ == "__main__":
-    root = App()
-    root.mainloop()
+    app = ParaScanApp()
+    app.mainloop()

@@ -1,4 +1,4 @@
-# PARASIGHT
+# PARASCAN
 tkinterdnd2
 opencv-python
 
